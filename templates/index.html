@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Météo - TP BTS SIO</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <!-- Bannière CNIL obligatoire -->
+        <div class="cnil-banner">
+            <p>
+                ℹ️ <strong>Conformité CNIL</strong> : 
+                Vous interagissez avec un agent conversationnel automatique. 
+                Vos questions ne sont pas enregistrées et seul le nom de la ville est traité.
+                <a href="#" onclick="afficherInfoCNIL()">En savoir plus</a>
+            </p>
+        </div>
+
+        <header>
+            <h1>🌤️ Agent Météo Intelligent</h1>
+            <p>Demandez la météo de n'importe quelle ville !</p>
+        </header>
+
+        <div class="chat-container">
+            <div id="messages" class="messages">
+                <div class="message bot-message">
+                    <p>Bonjour ! Je suis un assistant météo automatique. 
+                    Demandez-moi la météo d'une ville ! 😊</p>
+                </div>
+            </div>
+
+            <div class="input-container">
+                <input 
+                    type="text" 
+                    id="user-input" 
+                    placeholder="Ex: Quel temps fait-il à Paris ?"
+                    autocomplete="off"
+                >
+                <button id="send-btn" onclick="envoyerMessage()">Envoyer</button>
+            </div>
+        </div>
+
+        <footer>
+            <p>💻 TP BTS SIO SLAM - Agent conversationnel conforme CNIL</p>
+            <p><small>Propulsé par Mistral AI 🇫🇷 & OpenWeatherMap</small></p>
+        </footer>
+    </div>
+
+    <script>
+        // État du chat
+        let envoiEnCours = false;
+
+        // Envoyer un message
+        async function envoyerMessage() {
+            const input = document.getElementById('user-input');
+            const message = input.value.trim();
+
+            if (!message || envoiEnCours) return;
+
+            // Ajouter le message utilisateur
+            ajouterMessage(message, 'user');
+            input.value = '';
+            envoiEnCours = true;
+
+            // Afficher l'indicateur de saisie
+            const typingId = afficherTyping();
+
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ message: message })
+                });
+
+                const data = await response.json();
+
+                // Retirer l'indicateur de saisie
+                retirerTyping(typingId);
+
+                // Afficher la réponse
+                if (data.success && data.data) {
+                    ajouterMessageAvecMeteo(data.message, data.data);
+                } else {
+                    ajouterMessage(data.message, 'bot');
+                }
+
+            } catch (error) {
+                retirerTyping(typingId);
+                ajouterMessage('Erreur de connexion au serveur.', 'bot error');
+            } finally {
+                envoiEnCours = false;
+            }
+        }
+
+        // Ajouter un message simple
+        function ajouterMessage(texte, type) {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}-message`;
+            
+            const p = document.createElement('p');
+            p.textContent = texte;
+            messageDiv.appendChild(p);
+            
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        // Ajouter un message avec données météo
+        function ajouterMessageAvecMeteo(texte, meteo) {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message bot-message';
+            
+            const p = document.createElement('p');
+            p.textContent = texte;
+            messageDiv.appendChild(p);
+
+            // Carte météo détaillée
+            const card = document.createElement('div');
+            card.className = 'weather-card';
+            card.innerHTML = `
+                <h3>📍 ${meteo.ville}</h3>
+                <div class="weather-main">
+                    <div class="temperature">${meteo.temperature}°C</div>
+                    <div class="description">${meteo.description}</div>
+                </div>
+                <div class="weather-details">
+                    <div>🌡️ Ressenti : ${meteo.ressenti}°C</div>
+                    <div>💧 Humidité : ${meteo.humidite}%</div>
+                    <div>💨 Vent : ${meteo.vent} km/h</div>
+                </div>
+            `;
+            messageDiv.appendChild(card);
+            
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        // Indicateur "en train d'écrire..."
+        function afficherTyping() {
+            const messagesDiv = document.getElementById('messages');
+            const typingDiv = document.createElement('div');
+            typingDiv.className = 'message bot-message typing';
+            typingDiv.id = 'typing-indicator';
+            typingDiv.innerHTML = '<p>L\'agent réfléchit<span class="dots">...</span></p>';
+            messagesDiv.appendChild(typingDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            return 'typing-indicator';
+        }
+
+        function retirerTyping(id) {
+            const typing = document.getElementById(id);
+            if (typing) typing.remove();
+        }
+
+        // Afficher les informations CNIL
+        function afficherInfoCNIL() {
+            alert(`📋 Informations CNIL
+
+Cette application respecte les recommandations de la CNIL pour les agents conversationnels :
+
+✅ Transparence : Vous êtes informé que vous interagissez avec un robot
+✅ Minimisation : Seul le nom de la ville est traité
+✅ Pas de stockage : Aucune conversation n'est enregistrée
+✅ Sécurité : Les clés API sont sécurisées
+✅ Droit d'information : Vous pouvez demander comment vos données sont traitées
+
+Données collectées : Nom de la ville uniquement
+Durée de conservation : Aucune (traitement en temps réel)
+Finalité : Fournir des informations météorologiques
+
+Pour plus d'infos : https://www.cnil.fr/fr/chatbots`);
+            return false;
+        }
+
+        // Permettre l'envoi avec Enter
+        document.getElementById('user-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                envoyerMessage();
+            }
+        });
+    </script>
+</body>
+</html>
