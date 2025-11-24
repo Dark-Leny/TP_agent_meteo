@@ -152,3 +152,9 @@ python app.py
 ```
 
 Si la configuration est correcte, l'application démarre sur http://localhost:5000.
+
+
+
+### Captures d'écran de l'application
+
+!["page-accueil] hjfhu
