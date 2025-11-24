@@ -58,6 +58,7 @@ Le projet utilise le fichier **`.env`** (qui ne doit pas être versionné) pour 
 Créez un fichier nommé `.env` à la racine de votre projet et ajoutez vos clés :
 
 ```
+# Clés API - NE JAMAIS PARTAGER OU COMMITER
 MISTRAL_API_KEY="VOTRE_CLE_MISTRAL_ICI"
 OPENWEATHER_API_KEY="VOTRE_CLE_OPENWEATHER_ICI"
 ```
