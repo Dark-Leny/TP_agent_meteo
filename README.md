@@ -157,4 +157,4 @@ Si la configuration est correcte, l'application démarre sur http://localhost:50
 
 ### Captures d'écran de l'application
 
-!["page-accueil] hjfhu
+![page d'accueil] (page-accueil.png)
