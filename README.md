@@ -14,10 +14,27 @@ Ce projet met l'accent sur la **conformité aux recommandations CNIL** (Commissi
 
 ### 1. Prérequis
 
-* **Python 3.x**
+* **Python 3.8 ou supérieur installé**
+* Connaissances de base en Python
+* Notions de requêtes HTTP (API REST)
 * Clés API pour :
-    * **Mistral AI** (à obtenir sur `https://console.mistral.ai/`)
-    * **OpenWeatherMap** (à obtenir sur `https://openweathermap.org/api`)
+    * **Compte gratuit Mistral AI** (à obtenir sur `https://console.mistral.ai/`)
+    * **Compte gratuit OpenWeatherMap** (à obtenir sur `https://openweathermap.org/api`)
+
+Pour obtenir les clés API : 
+
+### Clé Mistral AI (gratuite)
+1. Créer un compte sur https://console.mistral.ai/
+2. Aller dans "API Keys"
+3. Créer une nouvelle clé
+4. Crédit gratuit : 5€ offerts à l'inscription (suffisant pour le TP)
+
+### Clé OpenWeatherMap (gratuite)
+1. Créer un compte sur https://openweathermap.org/
+2. Aller dans "API Keys"
+3. Copier la clé par défaut
+4. Plan gratuit : 1000 appels/jour
+
 
 ### 2. Clés API et Variables d'Environnement
 
@@ -30,6 +47,59 @@ MISTRAL_API_KEY="VOTRE_CLE_MISTRAL_ICI"
 OPENWEATHER_API_KEY="VOTRE_CLE_OPENWEATHER_ICI"
 ```
 
+Créez un fichier nommé `.gitignore` également à la racine de votre projet et ajouter ceci : 
+
+```
+# Environnement virtuel
+venv/
+env/
+ENV/
+.venv
+
+# Variables d'environnement (IMPORTANT)
+.env
+
+# Cache Python
+__pycache__/
+*.pyc
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+```
+
+
 ### 3. Installation des Dépendances
 
 Il est fortement recommandé d'utiliser un environnement virtuel.
@@ -39,7 +109,7 @@ Il est fortement recommandé d'utiliser un environnement virtuel.
 ```
 python -m venv venv
 source venv/bin/activate  # Sur Linux/macOS
-# ou venv\Scripts\activate  # Sur Windows
+venv\Scripts\activate  # Sur Windows
 ```
 
 2) Installez les dépendances : Les modules requis sont Flask, requests, mistralai, et python-dotenv.
