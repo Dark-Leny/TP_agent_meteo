@@ -36,6 +36,21 @@ Pour obtenir les clés API :
 4. Plan gratuit : 1000 appels/jour
 
 
+### Structure du projet
+tp_meteo_mistral/
+│
+├── .env                    # Clés API (à ne JAMAIS commiter)
+├── .gitignore              # Ignorer .env et autres fichiers sensibles
+├── app.py                  # Application Flask
+├── agent_meteo.py          # Logique de l'agent conversationnel
+├── templates/
+│ └── index.html            # Interface web
+├── static/
+│ └── style.css             # Style CSS
+└── README.md               # Documentation
+
+
+
 ### 2. Clés API et Variables d'Environnement
 
 Le projet utilise le fichier **`.env`** (qui ne doit pas être versionné) pour stocker les clés secrètes.
