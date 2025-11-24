@@ -8,7 +8,6 @@
 </head>
 <body>
     <div class="container">
-        <!-- Bannière CNIL obligatoire -->
         <div class="cnil-banner">
             <p>
                 ℹ️ <strong>Conformité CNIL</strong> : 
@@ -38,7 +37,13 @@
                     placeholder="Ex: Quel temps fait-il à Paris ?"
                     autocomplete="off"
                 >
+                <button id="vocal-btn" onclick="toggleVocal()" title="Activer la commande vocale">🎙️</button>
                 <button id="send-btn" onclick="envoyerMessage()">Envoyer</button>
+            </div>
+            
+            <div class="cnil-opt-in">
+                <input type="checkbox" id="consent-db">
+                <label for="consent-db">J'accepte que ma conversation soit enregistrée pour l'amélioration de l'agent (Opt-in).</label>
             </div>
         </div>
 
@@ -51,15 +56,82 @@
     <script>
         // État du chat
         let envoiEnCours = false;
+        // NOUVEAU : Historique de session (pas de persistance, conforme éthique)
+        let historique = []; 
+        let currentLang = 'fr-FR'; // Langue de l'interface (pour la voix et le fallback)
+        
+        // NOUVEAU : Initialisation de l'API de reconnaissance vocale
+        let recognition = null;
+        if ('webkitSpeechRecognition' in window) {
+            recognition = new webkitSpeechRecognition();
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            
+            recognition.onstart = () => {
+                 document.getElementById('vocal-btn').classList.add('active');
+                 document.getElementById('vocal-btn').textContent = '🔴';
+                 document.getElementById('user-input').placeholder = 'Écoute en cours... Parlez maintenant.';
+            };
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                document.getElementById('user-input').value = transcript;
+                toggleVocal(true); // Désactive le micro
+                envoyerMessage(); // Envoie automatiquement
+            };
+
+            recognition.onerror = (event) => {
+                console.error('Erreur vocale:', event.error);
+                toggleVocal(true);
+                if (event.error === 'not-allowed') {
+                     alert("Accès microphone refusé. Veuillez l'autoriser.");
+                }
+            };
+
+            recognition.onend = () => {
+                 toggleVocal(true); // Assure l'arrêt
+            };
+
+            // Fonction pour activer/désactiver le mode vocal
+            window.toggleVocal = function(forceStop = false) {
+                const btn = document.getElementById('vocal-btn');
+                if (!recognition) return;
+
+                if (btn.classList.contains('active') || forceStop) {
+                    recognition.stop();
+                    btn.classList.remove('active');
+                    btn.textContent = '🎙️';
+                    document.getElementById('user-input').placeholder = 'Ex: Quel temps fait-il à Paris ?';
+                } else {
+                    // Utilise la langue détectée ou 'fr-FR' par défaut
+                    recognition.lang = currentLang; 
+                    recognition.start();
+                }
+            };
+
+        } else {
+            // Masque le bouton si l'API n'est pas supportée
+            document.getElementById('vocal-btn').style.display = 'none';
+        }
+
 
         // Envoyer un message
         async function envoyerMessage() {
             const input = document.getElementById('user-input');
             const message = input.value.trim();
+            const consentChecked = document.getElementById('consent-db').checked; // NOUVEAU : Consentement
 
             if (!message || envoiEnCours) return;
 
-            // Ajouter le message utilisateur
+            // Ajouter le message utilisateur à l'historique
+            const userMessage = { role: 'user', content: message };
+            historique.push(userMessage);
+            
+            // Limiter l'historique (par exemple, aux 10 derniers messages = 5 paires)
+            if (historique.length > 10) { 
+                historique = historique.slice(historique.length - 10);
+            }
+
             ajouterMessage(message, 'user');
             input.value = '';
             envoiEnCours = true;
@@ -73,17 +145,37 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ message: message })
+                    // MODIFIÉ : Envoi du message, de l'historique et du consentement
+                    body: JSON.stringify({ 
+                        message: message, 
+                        historique: historique, 
+                        consentement: consentChecked 
+                    })
                 });
 
                 const data = await response.json();
 
                 // Retirer l'indicateur de saisie
                 retirerTyping(typingId);
+                
+                // NOUVEAU : Mettre à jour la langue pour l'API Vocale si Mistral l'a détectée
+                if (data.langue) {
+                    currentLang = data.langue;
+                    // L'API Web Speech utilise généralement le format 'fr-FR' pour les dialectes
+                    if (currentLang.length === 2) {
+                        currentLang = currentLang + '-' + currentLang.toUpperCase();
+                    }
+                }
+                
+                // NOUVEAU : Ajouter la réponse du bot à l'historique de session
+                const botMessage = { role: 'assistant', content: data.message };
+                historique.push(botMessage);
+
 
                 // Afficher la réponse
+                // MODIFIÉ : Passe les prévisions (data.forecast)
                 if (data.success && data.data) {
-                    ajouterMessageAvecMeteo(data.message, data.data);
+                    ajouterMessageAvecMeteo(data.message, data.data, data.forecast); 
                 } else {
                     ajouterMessage(data.message, 'bot');
                 }
@@ -96,7 +188,7 @@
             }
         }
 
-        // Ajouter un message simple
+        // Ajouter un message simple (inchangé)
         function ajouterMessage(texte, type) {
             const messagesDiv = document.getElementById('messages');
             const messageDiv = document.createElement('div');
@@ -110,8 +202,8 @@
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
 
-        // Ajouter un message avec données météo
-        function ajouterMessageAvecMeteo(texte, meteo) {
+        // MODIFIÉ : Ajout du paramètre 'previsions'
+        function ajouterMessageAvecMeteo(texte, meteo, previsions) {
             const messagesDiv = document.getElementById('messages');
             const messageDiv = document.createElement('div');
             messageDiv.className = 'message bot-message';
@@ -120,11 +212,11 @@
             p.textContent = texte;
             messageDiv.appendChild(p);
 
-            // Carte météo détaillée
+            // Carte météo actuelle détaillée (inchangé)
             const card = document.createElement('div');
             card.className = 'weather-card';
             card.innerHTML = `
-                <h3>📍 ${meteo.ville}</h3>
+                <h3>📍 ${meteo.ville} (Actuel)</h3>
                 <div class="weather-main">
                     <div class="temperature">${meteo.temperature}°C</div>
                     <div class="description">${meteo.description}</div>
@@ -137,11 +229,34 @@
             `;
             messageDiv.appendChild(card);
             
+            // NOUVEAU : Affichage des prévisions sur 5 jours
+            if (previsions && previsions.length > 0) {
+                const forecastDiv = document.createElement('div');
+                forecastDiv.className = 'forecast-container';
+                forecastDiv.innerHTML = '<h4>Prévisions sur 5 jours</h4>';
+                
+                previsions.forEach(day => {
+                    const dayCard = document.createElement('div');
+                    dayCard.className = 'forecast-card';
+                    // Formatage de la date (ex: Mar. 25/11)
+                    const dateObj = new Date(day.date);
+                    const formattedDate = dateObj.toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit' });
+
+                    dayCard.innerHTML = `
+                        <p><strong>${formattedDate}</strong></p>
+                        <img src="https://openweathermap.org/img/wn/${day.icone}@2x.png" alt="${day.description}" title="${day.description}">
+                        <p class="forecast-temp">${day.temperature}°C</p>
+                    `;
+                    forecastDiv.appendChild(dayCard);
+                });
+                messageDiv.appendChild(forecastDiv);
+            }
+
             messagesDiv.appendChild(messageDiv);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
 
-        // Indicateur "en train d'écrire..."
+        // Indicateur "en train d'écrire..." (inchangé)
         function afficherTyping() {
             const messagesDiv = document.getElementById('messages');
             const typingDiv = document.createElement('div');
@@ -158,27 +273,27 @@
             if (typing) typing.remove();
         }
 
-        // Afficher les informations CNIL
-        function afficherInfoCNIL() {
+        // Afficher les informations CNIL (MODIFIÉ : pour inclure la mention BDD opt-in)
+        window.afficherInfoCNIL = function() {
             alert(`📋 Informations CNIL
 
 Cette application respecte les recommandations de la CNIL pour les agents conversationnels :
 
 ✅ Transparence : Vous êtes informé que vous interagissez avec un robot
 ✅ Minimisation : Seul le nom de la ville est traité
-✅ Pas de stockage : Aucune conversation n'est enregistrée
+✅ Pas de stockage par défaut : Aucune conversation n'est enregistrée sans votre consentement explicite (case "Opt-in")
 ✅ Sécurité : Les clés API sont sécurisées
 ✅ Droit d'information : Vous pouvez demander comment vos données sont traitées
 
-Données collectées : Nom de la ville uniquement
-Durée de conservation : Aucune (traitement en temps réel)
-Finalité : Fournir des informations météorologiques
+Données collectées : Nom de la ville uniquement (+ conversation si Opt-in)
+Durée de conservation : Aucune (traitement en temps réel) / Conservée temporairement si Opt-in
+Finalité : Fournir des informations météorologiques (et amélioration de l'agent si Opt-in)
 
 Pour plus d'infos : https://www.cnil.fr/fr/chatbots`);
             return false;
         }
 
-        // Permettre l'envoi avec Enter
+        // Permettre l'envoi avec Enter (inchangé)
         document.getElementById('user-input').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 envoyerMessage();
